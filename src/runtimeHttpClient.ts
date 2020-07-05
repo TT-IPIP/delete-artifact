@@ -1,35 +1,61 @@
+import { ListArtifactsResponse } from './typings/github-artifacts';
 import * as core from '@actions/core';
 import { HttpClient } from '@actions/http-client';
 import { BearerCredentialHandler } from '@actions/http-client/auth';
+import { IHeaders } from '@actions/http-client/interfaces';
+
+/**
+ * The basic process environment variables.
+ */
+declare var process : {
+    env: {
+        ACTIONS_RUNTIME_URL: string;
+        GITHUB_RUN_ID: string;
+        ACTIONS_RUNTIME_TOKEN: string;
+    }
+}
+
+/**
+ * A basic response from the runtime HttpClient in relation to artifacts.
+ */
+interface ArtifactResponse {
+    success: boolean;
+}
+
+/**
+ * Defines the response when listing the artifacts.
+ */
+interface ListArtifactsResponseWrapper extends ArtifactResponse {
+    data: ListArtifactsResponse;
+}
 
 export class RuntimeHttpClient {
+    private static API_VERSION: string = '6.0-preview';
+
+    private client: HttpClient;
+    private headers: IHeaders;
+
     /**
      * A runtime HTTP client used to communicate with the current workflow runtime directly.
      */
     constructor() {
-        this.apiVersion = '6.0-preview';
-
-        const runtimeUrl = process.env['ACTIONS_RUNTIME_URL'];
-        const runId = process.env['GITHUB_RUN_ID'];
-        this.listArtifactsUrl = `${runtimeUrl}_apis/pipelines/workflows/${runId}/artifacts?api-version=${this.apiVersion}`;
-        
         this.client = new HttpClient('action/artifact', [
             new BearerCredentialHandler(process.env['ACTIONS_RUNTIME_TOKEN'])
         ]);
 
-        this.requestOptions = {
-            'Accept': `application/json;api-version=${this.apiVersion}`
+        this.headers = {
+            'Accept': `application/json;api-version=${RuntimeHttpClient.API_VERSION}`
         };
     }
 
     /**
      * Deletes the artifact at the supplied URL.
      * @param {string} url The URL of the artifact.
-     * @returns {object} An object containing the `success` state.
+     * @returns {ArtifactResponse} An object containing the `success` state.
      */
-    async deleteArtifact(url) {
+    public async deleteArtifact(url: string) : Promise<ArtifactResponse> {
         try {
-            const response = await this.client.del(url, this.requestOptions);
+            const response = await this.client.del(url, this.headers);
             const body = await response.readBody();
 
             if (this.isStatusCodeSuccess(response.message.statusCode)) {
@@ -46,11 +72,12 @@ export class RuntimeHttpClient {
 
     /**
      * Lists the artifacts associated with the current runtime.
-     * @returns {object} An object containing the `success` state, and the `data` containing the artifacts.
+     * @returns {ListArtifactsResponse} An object containing the `success` state, and the `data` containing the artifacts.
      */
-    async listArtifacts() {
+    public async listArtifacts(): Promise<ListArtifactsResponseWrapper> {
         try {
-            const response = await this.client.get(this.listArtifactsUrl, this.requestOptions);
+            const uri = `${process.env.ACTIONS_RUNTIME_URL}_apis/pipelines/workflows/${process.env.GITHUB_RUN_ID}/artifacts?api-version=${RuntimeHttpClient.API_VERSION}`;
+            const response = await this.client.get(uri, this.headers);
             const body = await response.readBody();
 
             if (this.isStatusCodeSuccess(response.message.statusCode)) {
@@ -65,15 +92,21 @@ export class RuntimeHttpClient {
             core.debug(e)
         }
 
-        return { success: false };
+        return {
+            success: false,
+            data: {
+                count: 0,
+                value: []
+            }
+        };
     }
 
     /**
      * Determines whether the provided status code indicates a successful response.
-     * @param {string} statusCode 
+     * @param {number|undefined} statusCode The status code.
      * @returns {boolean} True when the status code should be considered successful.
      */
-    isStatusCodeSuccess(statusCode) {
+    public isStatusCodeSuccess(statusCode: number | undefined) : boolean {
         if (!statusCode) {
             return false
         }
