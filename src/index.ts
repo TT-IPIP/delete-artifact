@@ -1,14 +1,27 @@
-import { NameResolver } from './nameResolver';
-import { RuntimeHttpClient } from './runtimeHttpClient';
-import Utils from './utils';
 import * as core from '@actions/core';
+import InputHelper from './inputHelper';
+import RuntimeHttpClient from './runtimeHttpClient';
+import { DefaultArtifactFilter, GlobArtifactFilter, IArtifactFilter } from './artifactFilters/';
+
+/**
+ * Gets the filter to be used based on whether `useGlob` is true.
+ * @returns {IArtifactFilter} The artifact filterer.
+ */
+function getFilter() : IArtifactFilter {
+    const names = InputHelper.getMultilineValues('name');
+    console.log('getFilter_names', names);
+
+    return InputHelper.getBoolean('useGlob')
+        ? new GlobArtifactFilter(names)
+        : new DefaultArtifactFilter(names);
+}
 
 /**
  * Attempts to fail the action based on the `failOnError` input; otherwise an error is logged.
  * @param {string} msg The message to log as the error, or the failure.
  */
 function fail(msg: string): void {
-    if (Utils.getBoolInput('failOnError')) {
+    if (InputHelper.getBoolean('failOnError')) {
         core.setFailed(msg);
     } else {
         core.error(msg);
@@ -28,14 +41,11 @@ async function run() : Promise<void> {
         return;
     }
     
-    const nameResolver = new NameResolver(
-        core.getInput('name'),
-        Utils.getBoolInput('useGlob'));
-
     let success = true;
-    
+    const { filter } = getFilter();
+
     // iterate over the matching artifacts
-    for (const artifact of artifacts.data.value.filter(a => nameResolver.isMatch(a.name))) {
+    for (const artifact of filter(artifacts.data.value)) {
         const del = await client.deleteArtifact(artifact.url);
         if (del.success) {
             core.info(`Successfully deleted artifact "${artifact.name}".`);

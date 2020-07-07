@@ -29,7 +29,7 @@ interface ListArtifactsResponseWrapper extends ArtifactResponse {
     data: ListArtifactsResponse;
 }
 
-export class RuntimeHttpClient {
+export default class RuntimeHttpClient {
     private static API_VERSION: string = '6.0-preview';
 
     private client: HttpClient;
