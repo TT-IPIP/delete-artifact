@@ -1,4 +1,7 @@
+![Example](https://github.com/GeekyEggo/delete-artifact/workflows/Example/badge.svg)
+
 # Delete artifacts
+
 A GitHub Action for deleting artifacts within the workflow run. This can be useful when artifacts are shared across jobs, but are no longer needed when the workflow is complete.
 
 ## ⚡ Usage
@@ -37,6 +40,7 @@ steps:
 ```
 
 ### Glob matching support
+
 ```yml
 steps:
 - uses: geekyeggo/delete-artifact@v1
@@ -45,8 +49,6 @@ steps:
     useGlob: true 
 ```
 N.B. Glob matching uses [`minimatch`](https://www.npmjs.com/package/minimatch), and is off by default.
-
-## 
 
 ## 🚨 Error vs Fail
 
